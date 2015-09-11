@@ -1,0 +1,40 @@
+#
+# Sample DevStack local.conf.
+#
+# This sample file is intended to be used for your typical DevStack environment
+# that's running all of OpenStack on a single host.  This can also be used as
+# the first host of a multi-host test environment.
+#
+# No changes to this sample configuration are required for this to work.
+#
+
+[[local|localrc]]
+
+DATABASE_PASSWORD=password
+RABBIT_PASSWORD=password
+SERVICE_PASSWORD=password
+SERVICE_TOKEN=password
+ADMIN_PASSWORD=password
+
+# The DevStack plugin defaults to using the ovn branch from the official ovs
+# repo.  You can optionally use a different one.  For example, you may want to
+# use the latest patches in blp's ovn branch:
+#OVN_REPO=http://github.com/blp/ovs-reviews.git
+#OVN_BRANCH=origin/ovn
+enable_plugin networking-ovn http://git.openstack.org/openstack/networking-ovn
+disable_all_services
+enable_service ovn-northd
+
+# Use Neutron instead of nova-network
+# OVN uses the DHCP and L3 agents for now.  They will be dropped once the
+# corresponding functionality is available in OVN.
+
+# We have to disable the neutron L2 agent. OVN does not use the L2 agent.
+
+# How to connect to ovsdb-server hosting the OVN databases.
+#OVN_REMOTE=tcp:$SERVICE_HOST:6640
+
+# A UUID to uniquely identify this system.  If one is not specified, a random
+# one will be generated and saved in the file 'ovn-uuid' for re-use in future
+# DevStack runs.
+#OVN_UUID=
