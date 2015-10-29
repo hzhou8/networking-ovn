@@ -11,6 +11,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import netaddr
+
 from oslo_config import cfg
 from oslo_log import log
 from oslo_utils import importutils
@@ -42,6 +44,7 @@ from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
 from neutron.db import l3_agentschedulers_db
+from neutron.db import l3_dvr_db
 from neutron.db import l3_gwmode_db
 from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
@@ -68,6 +71,7 @@ ACL_PRIORITY_DROP = 1001
 class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 securitygroups_db.SecurityGroupDbMixin,
                 l3_agentschedulers_db.L3AgentSchedulerDbMixin,
+                l3_dvr_db.L3_NAT_with_dvr_db_mixin,
                 l3_gwmode_db.L3_NAT_db_mixin,
                 external_net_db.External_net_db_mixin,
                 portbindings_db.PortBindingMixin,
@@ -373,12 +377,23 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self._process_port_create_extra_dhcp_opts(context, db_port,
                                                       dhcp_opts)
 
-        port_type, options, addresses, allowed_macs, parent_name, tag = \
+        port_type, options, mac, ips, allowed_macs, parent_name, tag = \
             self._get_ovn_port_options(binding_profile, db_port)
 
-        return self._create_port_in_ovn(context, db_port, addresses,
+        if self._is_router_port(db_port):
+            self._create_lrouter_port_in_ovn(context, db_port, mac, ips)
+            port_type = 'router'
+            options = {'router-port':
+                           utils.ovn_lrouter_port_name(db_port['id'])}
+
+        return self._create_lswitch_port_in_ovn(context, db_port, mac, ips,
                                         parent_name, tag, port_type, options,
                                         allowed_macs)
+
+    def _is_router_port(self, port):
+        return port['device_owner'] in [
+            const.DEVICE_OWNER_DVR_INTERFACE,
+            const.DEVICE_OWNER_ROUTER_INTF]
 
     def _get_ovn_port_options(self, binding_profile, port):
         vtep_physical_switch = binding_profile.get('vtep_physical_switch')
@@ -393,19 +408,17 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             port_type = 'vtep'
             options = {'vtep_physical_switch': vtep_physical_switch,
                        'vtep_logical_switch': vtep_logical_switch}
-            addresses = ["unknown"]
+            mac = "unknown"
+            ips = ["unknown"]
             allowed_macs = []
         else:
             parent_name = binding_profile.get('parent_name')
             tag = binding_profile.get('tag')
-            if 'fixed_ips' in port:
-                addresses = [port['mac_address'] + ' ' + ip['ip_address'] for
-                             ip in port['fixed_ips']]
-            else:
-                addresses = [port['mac_address']]
+            mac = port['mac_address']
+            ips = [fixed_ip['ip_address'] for fixed_ip in port['fixed_ips']]
             allowed_macs = self._get_allowed_mac_addresses_from_port(port)
 
-        return (port_type, options, addresses, allowed_macs, parent_name, tag)
+        return (port_type, options, mac, ips, allowed_macs, parent_name, tag)
 
     def _acl_direction(self, r, port):
         if r['direction'] == 'ingress':
@@ -594,7 +607,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return remote_group_sgs
 
-    def _create_port_in_ovn(self, context, port, macs, parent_name, tag,
+    def _create_lswitch_port_in_ovn(self, context, port, mac, ips, parent_name, tag,
                             port_type, options, allowed_macs):
         # When we create a port on a provider network, the mapping to
         # OVN_Northbound is a bit different.  Every port on a provider network
@@ -649,10 +662,12 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             txn.add(self._ovn.create_lport(
                     lport_name=port['id'],
                     lswitch_name=lswitch_name,
-                    addresses=macs,
+                    addresses=['%s %s' % (mac, ip) for ip in ips],
                     external_ids=external_ids,
+                    type=port_type,
                     parent_name=parent_name, tag=tag,
                     enabled=port.get('admin_state_up', None),
+                    options=options,
                     port_security=allowed_macs))
             sg_ports_cache = {}
             remote_group_sgs = self._add_acls(context, port, txn,
@@ -664,6 +679,31 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self._update_acls_for_security_group(context, sg_id,
                                                  sg_ports_cache,
                                                  exclude_ports=[port['id']])
+
+        return port
+
+    def _create_lrouter_port_in_ovn(self, context, port, mac, ips):
+        external_ids = {ovn_const.OVN_PORT_NAME_EXT_ID_KEY: port['name']}
+        lrouter_name = utils.ovn_name(port['device_id'])
+
+        if len(port['fixed_ips']) != 1:
+            msg = _("One and only one fixed-ip is expected for router port"
+                    " %s") % port
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        fixed_ip = port['fixed_ips'][0]
+        subnet = self._get_subnet(context, fixed_ip['subnet_id'])
+        net = netaddr.IPNetwork(subnet['cidr'])
+        lrouter_network = '%s/%s' % (fixed_ip['ip_address'], net.prefixlen)
+        with self._ovn.transaction(check_error=True) as txn:
+            txn.add(self._ovn.add_lrouter_port(
+                    name=utils.ovn_lrouter_port_name(port['id']),
+                    network=lrouter_network,
+                    lrouter=lrouter_name,
+                    mac=mac,
+                    external_ids=external_ids,
+                    enabled=port.get('admin_state_up', None)))
 
         return port
 
@@ -686,6 +726,10 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         utils.ovn_name(port['network_id'])))
                 txn.add(self._ovn.delete_acl(
                         utils.ovn_name(port['network_id']), port['id']))
+                if self._is_router_port(port):
+                    txn.add(self._ovn.delete_lrouter_port(
+                        utils.ovn_lrouter_port_name(port_id),
+                        utils.ovn_name(port['device_id'])))
 
         # NOTE(russellb): If this port had a security group applied with a rule
         # that used "remote_group_id", technically we could update the ACLs for

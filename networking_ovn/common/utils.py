@@ -18,3 +18,7 @@ def ovn_name(id):
     # We prefix the UUID to enable us to use the Neutron UUID when
     # updating, deleting etc.
     return 'neutron-%s' % id
+
+def ovn_lrouter_port_name(id):
+    # This is to distinguish with the name of the connected lswitch patch port
+    return 'lrouter-%s' % id
