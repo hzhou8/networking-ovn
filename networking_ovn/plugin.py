@@ -1,5 +1,5 @@
 #
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
 #
@@ -17,7 +17,6 @@ import six
 from oslo_config import cfg
 from oslo_log import log
 from oslo_utils import importutils
-
 
 from neutron.agent.ovsdb.native import idlutils
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
@@ -77,7 +76,6 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 extradhcpopt_db.ExtraDhcpOptMixin,
                 extraroute_db.ExtraRoute_db_mixin,
                 agentschedulers_db.DhcpAgentSchedulerDbMixin):
-
     __native_bulk_support = True
     __native_pagination_support = True
     __native_sorting_support = True
@@ -119,7 +117,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             portbindings.VIF_DETAILS: {
                 # TODO(rkukura): Replace with new VIF security details
                 portbindings.CAP_PORT_FILTER:
-                'security-group' in self.supported_extension_aliases}}
+                    'security-group' in self.supported_extension_aliases}}
 
         self.synchronizer.sync()
 
@@ -218,7 +216,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         # TODO(arosen): Undo logical switch creation on failure
         self._ovn.create_lswitch(lswitch_name=utils.ovn_name(network['id']),
                                  external_ids=ext_ids).execute(
-                                     check_error=True)
+            check_error=True)
         return network
 
     def delete_network(self, context, network_id):
@@ -227,7 +225,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                   network_id)
         self._ovn.delete_lswitch(
             utils.ovn_name(network_id), if_exists=True).execute(
-                check_error=True)
+            check_error=True)
 
     def _set_network_name(self, network_id, name):
         ext_id = [ovn_const.OVN_NETWORK_NAME_EXT_ID_KEY, name]
@@ -278,25 +276,25 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             ovn_const.OVN_PORT_NAME_EXT_ID_KEY: port['name']}
         with self._ovn.transaction(check_error=True) as txn:
             txn.add(self._ovn.set_lport(lport_name=port['id'],
-                    addresses=addresses,
-                    external_ids=external_ids,
-                    parent_name=parent_name, tag=tag,
-                    type=port_type,
-                    options=options,
-                    enabled=port['admin_state_up'],
-                    port_security=allowed_macs))
+                                        addresses=addresses,
+                                        external_ids=external_ids,
+                                        parent_name=parent_name, tag=tag,
+                                        type=port_type,
+                                        options=options,
+                                        enabled=port['admin_state_up'],
+                                        port_security=allowed_macs))
             # Note that the ovsdb IDL suppresses the transaction down to what
             # has actually changed.
             txn.add(self._ovn.delete_acl(
-                    utils.ovn_name(port['network_id']),
-                    port['id']))
+                utils.ovn_name(port['network_id']),
+                port['id']))
             self._add_acls(context, port, txn)
         return port
 
     def _get_data_from_binding_profile(self, context, port):
         if (ovn_const.OVN_PORT_BINDING_PROFILE not in port or
                 not attr.is_attr_set(
-                    port[ovn_const.OVN_PORT_BINDING_PROFILE])):
+                        port[ovn_const.OVN_PORT_BINDING_PROFILE])):
             return {}
 
         param_dict = {}
@@ -305,7 +303,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             for param_key in param_keys:
                 try:
                     param_dict[param_key] = (port[
-                        ovn_const.OVN_PORT_BINDING_PROFILE][param_key])
+                                                 ovn_const.OVN_PORT_BINDING_PROFILE][param_key])
                 except KeyError:
                     pass
             if len(param_dict) == 0:
@@ -374,8 +372,8 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             # NOTE(arosen): _process_port_bindings_create_and_update
             # does not set the binding on the port so we do it here.
             if (ovn_const.OVN_PORT_BINDING_PROFILE in port['port'] and
-                attr.is_attr_set(
-                    port['port'][ovn_const.OVN_PORT_BINDING_PROFILE])):
+                    attr.is_attr_set(
+                            port['port'][ovn_const.OVN_PORT_BINDING_PROFILE])):
                 db_port[ovn_const.OVN_PORT_BINDING_PROFILE] = \
                     port['port'][ovn_const.OVN_PORT_BINDING_PROFILE]
 
@@ -688,15 +686,15 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             # set in the Interfaces table of the Open_vSwitch database, which
             # nova sets to be the port ID.
             txn.add(self._ovn.create_lport(
-                    lport_name=port['id'],
-                    lswitch_name=lswitch_name,
-                    addresses=macs,
-                    external_ids=external_ids,
-                    parent_name=parent_name, tag=tag,
-                    enabled=port.get('admin_state_up', None),
-                    options=options,
-                    type=port_type,
-                    port_security=allowed_macs))
+                lport_name=port['id'],
+                lswitch_name=lswitch_name,
+                addresses=macs,
+                external_ids=external_ids,
+                parent_name=parent_name, tag=tag,
+                enabled=port.get('admin_state_up', None),
+                options=options,
+                type=port_type,
+                port_security=allowed_macs))
             sg_ports_cache = {}
             subnet_cache = {}
             remote_group_sgs = self._add_acls(context, port, txn,
@@ -723,15 +721,15 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             # execute a transaction with the remote db.  The check is local.
             self._ovn.delete_lswitch(
                 utils.ovn_name(port['id']), if_exists=False).execute(
-                    check_error=True, log_errors=False)
+                check_error=True, log_errors=False)
         except RuntimeError:
             # If the switch doesn't exist, we'll get a RuntimeError, meaning
             # we just need to delete a port.
             with self._ovn.transaction(check_error=True) as txn:
                 txn.add(self._ovn.delete_lport(port_id,
-                        utils.ovn_name(port['network_id'])))
+                                               utils.ovn_name(port['network_id'])))
                 txn.add(self._ovn.delete_acl(
-                        utils.ovn_name(port['network_id']), port['id']))
+                    utils.ovn_name(port['network_id']), port['id']))
 
         # NOTE(russellb): If this port had a security group applied with a rule
         # that used "remote_group_id", technically we could update the ACLs for
@@ -754,7 +752,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             context, router)
         router_name = utils.ovn_name(router['id'])
         external_ids = {ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY:
-                        router.get('name', 'no_router_name')}
+                            router.get('name', 'no_router_name')}
         self._ovn.create_lrouter(router_name,
                                  external_ids=external_ids
                                  ).execute(check_error=True)
@@ -774,7 +772,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             context, id, router)
         router_name = utils.ovn_name(router['id'])
         external_ids = {ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY:
-                        router.get('name', 'no_router_name')}
+                            router.get('name', 'no_router_name')}
         self._ovn.update_lrouter(router_name,
                                  external_ids=external_ids
                                  ).execute(check_error=True)
@@ -799,18 +797,15 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         network = "%s/%s" % (port['fixed_ips'][0]['ip_address'],
                              str(cidr.prefixlen))
 
-        self._ovn.add_lrouter_port(port['id'], lrouter,
-                                   mac=port['mac_address'],
-                                   network=network).execute(check_error=True)
-        # TODO(chandrav)
-        # The following code is to update the options column in the lport
-        # table with {router-port: "UUID of logical_router_port"}. Ideally this
-        # should have been handled ine one transaction with add_lrouter_port,
-        # but due to a bug in idl, we are forced to update it in a separate
-        # transaction. After the transaction is committed idl does not update
-        # the UUID that is part of a string from old to new.
-        self._ovn.set_lrouter_port_in_lport(port['id']).execute(
-            check_error=True)
+        lrouter_port_name = utils.ovn_lrouter_port_name(port['id'])
+        with self._ovn.transaction(check_error=True) as txn:
+            txn.add(self._ovn.add_lrouter_port(name=lrouter_port_name,
+                                               lrouter=lrouter,
+                                               mac=port['mac_address'],
+                                               network=network))
+
+            txn.add(self._ovn.set_lrouter_port_in_lport(port['id'],
+                                                        lrouter_port_name))
         return router_interface_info
 
     def remove_router_interface(self, context, router_id, interface_info):
@@ -847,7 +842,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             context, router_id, interface_info)
 
         if port_id is not None:
-            self._ovn.delete_lrouter_port(port_id,
+            self._ovn.delete_lrouter_port(utils.ovn_lrouter_port_name(port_id),
                                           utils.ovn_name(router_id),
                                           if_exists=False
                                           ).execute(check_error=True)
@@ -875,7 +870,7 @@ class OVNPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     continue
                 port = self.get_port(context, binding['port_id'])
                 txn.add(self._ovn.delete_acl(
-                        utils.ovn_name(port['network_id']), port['id']))
+                    utils.ovn_name(port['network_id']), port['id']))
                 self._add_acls(context, port, txn, sg_cache, sg_ports_cache,
                                subnet_cache)
 
