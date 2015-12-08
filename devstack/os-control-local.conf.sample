@@ -39,6 +39,10 @@ enable_service q-l3
 enable_service q-meta
 enable_service neutron
 enable_service n-cpu
+enable_service n-cond
+enable_service n-crt
+enable_service n-sch
+enable_service n-cauth
 enable_service n-novnc
 enable_service n-api
 
