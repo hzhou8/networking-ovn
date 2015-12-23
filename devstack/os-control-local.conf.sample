@@ -28,15 +28,12 @@ enable_service ovn-controller
 # Use Neutron instead of nova-network
 disable_service n-net
 enable_service q-svc
-# OVN uses the DHCP and L3 agents for now.  They will be dropped once the
+# OVN uses the DHCP agents for now.  They will be dropped once the
 # corresponding functionality is available in OVN.
 enable_service q-dhcp
-enable_service q-l3
+disable_service q-l3
 enable_service q-meta
 enable_service q-svc
-enable_service q-dhcp
-enable_service q-l3
-enable_service q-meta
 enable_service neutron
 enable_service n-cpu
 enable_service n-cond
@@ -51,6 +48,9 @@ disable_service q-agt
 
 # How to connect to ovsdb-server hosting the OVN databases.
 OVN_REMOTE=tcp:<IP address of host running ovn-northd>:6640
+
+# Use OVN distributed routing
+OVN_L3_MODE=True
 
 # A UUID to uniquely identify this system.  If one is not specified, a random
 # one will be generated and saved in the file 'ovn-uuid' for re-use in future
