@@ -69,33 +69,32 @@ class TestOVNMechanismDriver(test_plugin.Ml2PluginV2TestCase):
         ).info()
 
         self.sg_cache = {self.fake_sg['id']: self.fake_sg}
-        self.sg_ports_cache = {}
         self.subnet_cache = {self.fake_subnet['id']: self.fake_subnet}
 
-    def test__process_sg_notifications_sg_update(self):
+    def test__process_sg_rule_notifications_sg_update(self):
         with mock.patch(
             'networking_ovn.common.acl.update_acls_for_security_group'
         ) as ovn_acl_up:
-            self.mech_driver._process_sg_notification(
+            self.mech_driver._process_sg_rule_notification(
                 resources.SECURITY_GROUP, events.AFTER_UPDATE, {},
                 security_group_id='sg_id')
             ovn_acl_up.assert_called_once_with(
                 mock.ANY, mock.ANY, mock.ANY,
                 'sg_id', is_add_acl=True, rule=None)
 
-    def test__process_sg_notifications_sgr_create(self):
+    def test__process_sg_rule_notifications_sgr_create(self):
         with mock.patch(
             'networking_ovn.common.acl.update_acls_for_security_group'
         ) as ovn_acl_up:
             rule = {'security_group_id': 'sg_id'}
-            self.mech_driver._process_sg_notification(
+            self.mech_driver._process_sg_rule_notification(
                 resources.SECURITY_GROUP_RULE, events.AFTER_CREATE, {},
                 security_group_rule=rule)
             ovn_acl_up.assert_called_once_with(
                 mock.ANY, mock.ANY, mock.ANY,
                 'sg_id', is_add_acl=True, rule=rule)
 
-    def test_process_sg_notifications_sgr_delete(self):
+    def test_process_sg_rule_notifications_sgr_delete(self):
         rule = {'security_group_id': 'sg_id'}
         with mock.patch(
             'networking_ovn.common.acl.update_acls_for_security_group'
@@ -105,7 +104,7 @@ class TestOVNMechanismDriver(test_plugin.Ml2PluginV2TestCase):
                 'SecurityGroupDbMixin.get_security_group_rule',
                 return_value=rule
             ):
-                self.mech_driver._process_sg_notification(
+                self.mech_driver._process_sg_rule_notification(
                     resources.SECURITY_GROUP_RULE, events.BEFORE_DELETE, {},
                     security_group_rule=rule)
                 ovn_acl_up.assert_called_once_with(
@@ -116,7 +115,7 @@ class TestOVNMechanismDriver(test_plugin.Ml2PluginV2TestCase):
         acls = ovn_acl.add_acls(self.mech_driver._plugin,
                                 mock.Mock(),
                                 self.fake_port_no_sg,
-                                {}, {}, {})
+                                {}, {})
         self.assertEqual([], acls)
 
     def test_add_acls_with_sec_group(self):
@@ -137,7 +136,6 @@ class TestOVNMechanismDriver(test_plugin.Ml2PluginV2TestCase):
                                 mock.Mock(),
                                 self.fake_port_sg,
                                 self.sg_cache,
-                                self.sg_ports_cache,
                                 self.subnet_cache)
         self.assertEqual(expected_acls, acls)
 
@@ -152,7 +150,7 @@ class TestOVNMechanismDriver(test_plugin.Ml2PluginV2TestCase):
             acls = ovn_acl.add_acls(self.mech_driver._plugin,
                                     mock.Mock(),
                                     self.fake_port_sg,
-                                    {}, {}, {})
+                                    {}, {})
             self.assertEqual(expected_acls, acls)
 
         # Test with security groups disabled
@@ -162,7 +160,6 @@ class TestOVNMechanismDriver(test_plugin.Ml2PluginV2TestCase):
                                     mock.Mock(),
                                     self.fake_port_sg,
                                     self.sg_cache,
-                                    self.sg_ports_cache,
                                     self.subnet_cache)
             self.assertEqual([], acls)
 
@@ -368,6 +365,7 @@ class OVNMechanismDriverTestCase(test_plugin.Ml2PluginV2TestCase):
     _mechanism_drivers = ['logger', 'ovn']
 
     def setUp(self):
+        impl_idl_ovn.OvsdbNbOvnIdl = fakes.FakeOvsdbNbOvnIdl()
         config.cfg.CONF.set_override('tenant_network_types',
                                      ['geneve'],
                                      group='ml2')
@@ -377,6 +375,7 @@ class OVNMechanismDriverTestCase(test_plugin.Ml2PluginV2TestCase):
         super(OVNMechanismDriverTestCase, self).setUp()
         mm = manager.NeutronManager.get_plugin().mechanism_manager
         self.mech_driver = mm.mech_drivers['ovn'].obj
+        self.mech_driver.initialize()
         self.mech_driver._nb_ovn = fakes.FakeOvsdbNbOvnIdl()
         self.mech_driver._insert_port_provisioning_block = mock.Mock()
         self.mech_driver.vif_type = portbindings.VIF_TYPE_OVS

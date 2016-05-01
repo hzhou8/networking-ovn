@@ -396,14 +396,12 @@ class TestACLs(base.TestCase):
             'direction': 'ingress'
         }).info()
 
-        match, remote_portdir = ovn_acl.acl_direction(sg_rule, self.fake_port)
+        match = ovn_acl.acl_direction(sg_rule, self.fake_port)
         self.assertEqual('outport == "' + self.fake_port['id'] + '"', match)
-        self.assertEqual('inport', remote_portdir)
 
         sg_rule['direction'] = 'egress'
-        match, remote_portdir = ovn_acl.acl_direction(sg_rule, self.fake_port)
+        match = ovn_acl.acl_direction(sg_rule, self.fake_port)
         self.assertEqual('inport == "' + self.fake_port['id'] + '"', match)
-        self.assertEqual('outport', remote_portdir)
 
     def test_acl_ethertype(self):
         sg_rule = fakes.FakeSecurityGroupRule.create_one_security_group_rule({
@@ -456,8 +454,12 @@ class TestACLs(base.TestCase):
         sg_ports_cache = {sg['id']: [{'port_id': port['id']}],
                           remote_sg['id']: []}
 
-        # Validate no ACLs to update when remote security group
-        # doesn't have any ports.
+        # Build ACL for validation.
+        expected_acl = ovn_acl._add_sg_rule_acl_for_port(port, sg_rule)
+        expected_acl.pop('lport')
+        expected_acl.pop('lswitch')
+
+        # Validate ACLs when port has security groups.
         ovn_acl.update_acls_for_security_group(self.plugin,
                                                self.admin_context,
                                                self.driver._nb_ovn,
@@ -467,7 +469,7 @@ class TestACLs(base.TestCase):
         self.driver._nb_ovn.update_acls.assert_called_once_with(
             [port['network_id']],
             mock.ANY,
-            {},
+            {port['id']: expected_acl},
             need_compare=False,
             is_add_acl=True
         )
@@ -482,17 +484,11 @@ class TestACLs(base.TestCase):
                         return_value=False):
             acl_list = ovn_acl.add_acls(self.plugin,
                                         self.admin_context,
-                                        port, {}, {}, {})
+                                        port, {}, {})
             self.assertEqual([], acl_list)
 
             ovn_acl.update_acls_for_security_group(self.plugin,
                                                    self.admin_context,
                                                    self.driver._ovn,
                                                    sg['id'])
-            self.driver._ovn.update_acls.assert_not_called()
-
-            ovn_acl.refresh_remote_security_group(self.plugin,
-                                                  self.admin_context,
-                                                  self.driver._ovn,
-                                                  sg)
             self.driver._ovn.update_acls.assert_not_called()
