@@ -80,6 +80,14 @@ ovn_opts = [
                default=(12 * 60 * 60),
                help=_('Default least time (in seconds ) to use when '
                       'ovn_native_dhcp is enabled.')),
+    cfg.FloatOpt('task_queue_retry_interval',
+                 default=0.5,
+                 help=_("Interval in seconds between retries when conflicting "
+                        "updates are pending in ml2 post commit.")),
+    cfg.IntOpt('task_queue_timeout',
+               default=2,
+               help=_("Timeout in seconds when waiting for conflicting "
+                      "pending updates to complete."))
 ]
 
 cfg.CONF.register_opts(ovn_opts, group='ovn')

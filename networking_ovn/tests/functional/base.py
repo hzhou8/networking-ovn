@@ -29,6 +29,7 @@ from neutron.plugins.ml2 import config
 from neutron.tests.unit.plugins.ml2 import test_plugin
 
 from networking_ovn._i18n import _LE
+from networking_ovn.db import models  # noqa
 from networking_ovn.ovsdb import impl_idl_ovn
 from networking_ovn.ovsdb import ovsdb_monitor
 from networking_ovn.tests.functional.resources import process
