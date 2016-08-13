@@ -43,3 +43,12 @@ ACL_ACTION_ALLOW = 'allow'
 # the options column of the Logical Router. This value is used to detect
 # unhosted router gateways to schedule.
 OVN_GATEWAY_INVALID_CHASSIS = 'neutron-ovn-invalid-chassis'
+
+PENDING = 'pending'
+COMPLETED = 'completed'
+PROCESSING = 'processing'
+FAILED = 'failed'
+
+OBJ_TYPE_PORT = 'port'
+
+ACTION_UPDATE = 'update'
