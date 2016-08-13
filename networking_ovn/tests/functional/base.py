@@ -29,6 +29,7 @@ from neutron.plugins.ml2 import config
 from neutron.tests.unit.plugins.ml2 import test_plugin
 
 from networking_ovn._i18n import _LE
+from networking_ovn.db import models  # noqa
 from networking_ovn.ovsdb import impl_idl_ovn
 from networking_ovn.ovsdb import ovsdb_monitor
 from networking_ovn.tests.functional.resources import process
@@ -65,11 +66,11 @@ class TestOVNFunctionalBase(test_plugin.Ml2PluginV2TestCase):
     # It installs openvswitch in the '/usr/local' path and the ovn-nb schema
     # file will be present in this path.
     OVS_INSTALL_SHARE_PATH = '/usr/local/share/openvswitch'
-    _mechanism_drivers = ['logger', 'ovn']
+    _mechanism_drivers = ['logger']
     _extension_drivers = ['port_security']
     l3_plugin = 'networking_ovn.l3.l3_ovn.OVNL3RouterPlugin'
 
-    def setUp(self, ovn_worker=False):
+    def setUp(self, ovn_worker=False, ovn_mech_driver='ovn'):
         config.cfg.CONF.set_override('extension_drivers',
                                      self._extension_drivers,
                                      group='ml2')
@@ -80,9 +81,12 @@ class TestOVNFunctionalBase(test_plugin.Ml2PluginV2TestCase):
                                      ['1:65536'],
                                      group='ml2_type_geneve')
 
+        if ovn_mech_driver not in self._mechanism_drivers:
+            self._mechanism_drivers.append(ovn_mech_driver)
+            self.ovn_mech_driver = ovn_mech_driver
         super(TestOVNFunctionalBase, self).setUp()
         mm = manager.NeutronManager.get_plugin().mechanism_manager
-        self.mech_driver = mm.mech_drivers['ovn'].obj
+        self.mech_driver = mm.mech_drivers[ovn_mech_driver].obj
         mgr = manager.NeutronManager.get_instance()
         self.l3_plugin = mgr.get_service_plugins().get(
             service_constants.L3_ROUTER_NAT)
@@ -98,6 +102,7 @@ class TestOVNFunctionalBase(test_plugin.Ml2PluginV2TestCase):
         # previous test case and will cause the test case to fail.
         impl_idl_ovn.OvsdbNbOvnIdl.ovsdb_connection = None
         impl_idl_ovn.OvsdbSbOvnIdl.ovsdb_connection = None
+        self._mechanism_drivers.remove(self.ovn_mech_driver)
         super(TestOVNFunctionalBase, self).tearDown()
 
     def _start_ovsdb_server_and_idls(self):

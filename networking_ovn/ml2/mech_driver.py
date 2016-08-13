@@ -45,6 +45,7 @@ from networking_ovn.common import config
 from networking_ovn.common import constants as ovn_const
 from networking_ovn.common import utils
 from networking_ovn.ml2 import qos_driver
+from networking_ovn.ml2 import task_queue
 from networking_ovn import ovn_db_sync
 from networking_ovn.ovsdb import impl_idl_ovn
 from networking_ovn.ovsdb import ovsdb_monitor
@@ -100,6 +101,10 @@ class OVNMechanismDriver(driver_api.MechanismDriver):
         self.subscribe()
         self.qos_driver = qos_driver.OVNQosDriver(self)
         self._init_dhcp_opt_codes()
+
+        self.task_queue = task_queue.OvnTaskQueue(
+            cfg.CONF.ovn.task_queue_retry_interval,
+            cfg.CONF.ovn.task_queue_timeout)
 
     @property
     def _plugin(self):
@@ -658,6 +663,12 @@ class OVNMechanismDriver(driver_api.MechanismDriver):
         state changes that it does not know or care about.
         """
         self.validate_and_get_data_from_binding_profile(context.current)
+        self.task_queue.add_task(context._plugin_context.session,
+                                 context._plugin_context.request_id[4:],
+                                 ovn_const.OBJ_TYPE_PORT,
+                                 context.current['id'],
+                                 ovn_const.ACTION_UPDATE,
+                                 context.current)
 
     def update_port_postcommit(self, context):
         """Update a port.
@@ -677,7 +688,16 @@ class OVNMechanismDriver(driver_api.MechanismDriver):
         """
         port = context.current
         original_port = context.original
-        self.update_port(port, original_port)
+        db_session = context._plugin_context.session
+        task = self.task_queue.wait_task_ready(
+            db_session,
+            context._plugin_context.request_id[4:],
+            ovn_const.OBJ_TYPE_PORT,
+            context.current['id'])
+        try:
+            self.update_port(port, original_port)
+        finally:
+            self.task_queue.delete_task(db_session, task)
 
     def update_port(self, port, original_port, qos_options=None):
         ovn_port_info = self.get_ovn_port_options(port, qos_options,

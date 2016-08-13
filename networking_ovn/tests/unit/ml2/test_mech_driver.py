@@ -32,6 +32,7 @@ from neutron.tests.unit.plugins.ml2 import test_plugin
 from networking_ovn.common import acl as ovn_acl
 from networking_ovn.common import constants as ovn_const
 from networking_ovn.common import utils as ovn_utils
+from networking_ovn.db import models  # noqa
 from networking_ovn.ovsdb import impl_idl_ovn
 from networking_ovn.tests.unit import fakes
 
