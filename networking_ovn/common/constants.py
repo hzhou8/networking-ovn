@@ -52,3 +52,5 @@ FAILED = 'failed'
 OBJ_TYPE_PORT = 'port'
 
 ACTION_UPDATE = 'update'
+ACTION_CREATE = 'create'
+ACTION_DELETE = 'delete'

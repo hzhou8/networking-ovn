@@ -668,7 +668,8 @@ class OVNMechanismDriver(driver_api.MechanismDriver):
                                  ovn_const.OBJ_TYPE_PORT,
                                  context.current['id'],
                                  ovn_const.ACTION_UPDATE,
-                                 context.current)
+                                 {'original': context.original,
+                                  'current': context.current})
 
     def update_port_postcommit(self, context):
         """Update a port.

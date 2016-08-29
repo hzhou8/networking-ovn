@@ -326,7 +326,7 @@ def acl_port_ips(port):
         return {'ip4': [], 'ip6': []}
 
     ip_addresses = {4: [], 6: []}
-    for fixed_ip in port['fixed_ips']:
+    for fixed_ip in port.get('fixed_ips', []):
         ip_version = netaddr.IPNetwork(fixed_ip['ip_address']).version
         ip_addresses[ip_version].append(fixed_ip['ip_address'])
 
